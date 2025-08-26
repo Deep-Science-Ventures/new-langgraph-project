@@ -38,9 +38,11 @@ async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
 
     Can use runtime context to alter behavior.
     """
+    # Safely access runtime context with fallback
+    config_param = runtime.context.get('my_configurable_param') if runtime.context else None
     return {
         "changeme": "output from call_model. "
-        f"Configured with {runtime.context.get('my_configurable_param')}"
+        f"Configured with {config_param or 'default_value'}"
     }
 
 
