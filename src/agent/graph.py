@@ -1,15 +1,18 @@
-"""LangGraph single-node graph template.
+"""LangGraph chatbot implementation.
 
-Returns a predefined response. Replace logic and configuration as needed.
+A simple chatbot that uses Gemini to respond to user messages.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, TypedDict
+import os
+from typing import Annotated, Any, Dict, TypedDict
 
-from langgraph.graph import StateGraph
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
 from langgraph.runtime import Runtime
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 
 class Context(TypedDict):
@@ -19,37 +22,60 @@ class Context(TypedDict):
     See: https://langchain-ai.github.io/langgraph/cloud/how-tos/configuration_cloud/
     """
 
-    my_configurable_param: str
+    api_key: str
 
 
-@dataclass
-class State:
-    """Input state for the agent.
+class State(TypedDict):
+    """State for the chatbot agent.
 
-    Defines the initial structure of incoming data.
-    See: https://langchain-ai.github.io/langgraph/concepts/low_level/#state
+    Messages have the type "list". The `add_messages` function
+    in the annotation defines how this state key should be updated
+    (in this case, it appends messages to the list, rather than overwriting them)
     """
+    
+    messages: Annotated[list, add_messages]
 
-    changeme: str = "example"
 
-
-async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
-    """Process input and returns output.
-
-    Can use runtime context to alter behavior.
+def chatbot(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
+    """Process messages and return chatbot response.
+    
+    Uses Gemini to generate responses to user messages.
     """
-    # Safely access runtime context with fallback
-    config_param = runtime.context.get('my_configurable_param') if runtime.context else None
-    return {
-        "changeme": "output from call_model. "
-        f"Configured with {config_param or 'default_value'}"
-    }
+    # Set up the API key from runtime context
+    api_key = None
+    if runtime.context and runtime.context.get('api_key'):
+        api_key = runtime.context.get('api_key')
+    elif os.environ.get("GOOGLE_API_KEY"):
+        api_key = os.environ.get("GOOGLE_API_KEY")
+    else:
+        return {
+            "messages": [{
+                "role": "assistant",
+                "content": "Error: GOOGLE_API_KEY not provided in context or environment variables."
+            }]
+        }
+    
+    # Initialize Gemini model
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash-exp",
+        google_api_key=api_key
+    )
+    
+    # Get response from Gemini
+    response = llm.invoke(state["messages"])
+    
+    return {"messages": [response]}
 
 
 # Define the graph
-graph = (
-    StateGraph(State, context_schema=Context)
-    .add_node(call_model)
-    .add_edge("__start__", "call_model")
-    .compile(name="New Graph")
-)
+graph_builder = StateGraph(State, context_schema=Context)
+
+# Add the chatbot node
+graph_builder.add_node("chatbot", chatbot)
+
+# Define the flow: START -> chatbot -> END
+graph_builder.add_edge(START, "chatbot")
+graph_builder.add_edge("chatbot", END)
+
+# Compile the graph
+graph = graph_builder.compile(name="Chatbot")
