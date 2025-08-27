@@ -78,19 +78,28 @@ def address_the_user(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
 
     return {"messages": [response]}
 
+template = [{
+    "title": "Poem 1",
+    "instructions": "write a poem about squirrels."
+},
+{
+    "title": "Poem 2",
+    "instructions": "ask the user what subject and then write a poem on that subject"
+},
+{
+    "title": "Poem 3",
+    "instructions": "write a poem about whales"
+}]
 
 graph_builder = StateGraph(State, context_schema=Context)
 
-graph_builder.add_node("address_the_user", address_the_user)
+graph_builder.add_node("Poem 1", address_the_user)
+graph_builder.add_node("Poem 2", address_the_user)
+graph_builder.add_node("Poem 3", address_the_user)
 
-tool_node = ToolNode(tools=[tool])
-graph_builder.add_node("tools", tool_node)
+graph_builder.add_edge(START, "Poem 1")
+graph_builder.add_edge("Poem 1", "Poem 2")
+graph_builder.add_edge("Poem 2", "Poem 3")
+graph_builder.add_edge("Poem 3", END)
 
-graph_builder.add_conditional_edges(
-    "address_the_user",
-    tools_condition,
-)
-graph_builder.add_edge("tools", "address_the_user")
-graph_builder.add_edge(START, "address_the_user")
-
-graph = graph_builder.compile(name="Chatbot with Web Search")
+graph = graph_builder.compile(name="Fran's poems")
