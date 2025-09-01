@@ -16,9 +16,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_tavily import TavilySearch
 from langgraph.prebuilt import ToolNode, tools_condition
 
+from utils.lm_utils import get_llm
+llm = get_llm()
+
 tool = TavilySearch(max_results=3)
 
-custom_system_prompt = "Be a good assistant. The user is called Francesco."
+base_system_prompt = "Be a good assistant. The user is called Francesco."
 
 class Context(TypedDict):
     """Context parameters for the agent.
@@ -40,43 +43,37 @@ class State(TypedDict):
     
     messages: Annotated[list, add_messages]
 
-
-def address_the_user(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
-    """Process messages and return chatbot response.
-    
-    Uses Gemini to generate responses to user messages.
-    """
-    # Set up the API key from runtime context
-    api_key = None
+def get_api_key(runtime):
     if runtime.context and runtime.context.get('api_key'):
-        api_key = runtime.context.get('api_key')
+        return runtime.context.get('api_key')
     elif os.environ.get("GOOGLE_API_KEY"):
-        api_key = os.environ.get("GOOGLE_API_KEY")
+        return os.environ.get("GOOGLE_API_KEY")
     else:
-        return {
-            "messages": [{
-                "role": "assistant",
-                "content": "Error: GOOGLE_API_KEY not provided in context or environment variables."
-            }]
-        }
-    
-    # Initialize Gemini model
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-exp",
-        google_api_key=api_key
-    )
-    tools = [tool]
-    llm_with_tools = llm.bind_tools(tools)
+        return None
 
-    # Prepare messages with system prompt
-    messages_with_system = [
-        {"role": "system", "content": custom_system_prompt}
-    ] + state["messages"]
+def create_node(node_config: dict):
+    """Create a node function with specific instructions from template."""
     
-    # Get response from Gemini
-    response = llm_with_tools.invoke(messages_with_system)
+    def node(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
+        """Process messages and return chatbot response with custom instructions."""
+        # Set up the API key from runtime context
+        tools = [tool]
+        llm_with_tools = llm.bind_tools(tools)
+        
+        # Prepare messages with system prompt
+        messages_with_system = [
+            {"role": "system", "content": base_system_prompt}
+        ] + state["messages"] + [
+            {"role": "user", "content": node_config['instructions']}
+        ]
+        print(messages_with_system)
+        # Get response from Gemini
+        response = llm_with_tools.invoke(messages_with_system)
 
-    return {"messages": [response]}
+        return {"messages": [response]}
+    
+    return node
+
 
 template = [{
     "title": "Poem 1",
@@ -93,13 +90,13 @@ template = [{
 
 graph_builder = StateGraph(State, context_schema=Context)
 
-graph_builder.add_node("Poem 1", address_the_user)
-graph_builder.add_node("Poem 2", address_the_user)
-graph_builder.add_node("Poem 3", address_the_user)
+graph_builder.add_node("Poem 1", create_node(template[0]))
+# graph_builder.add_node("Poem 2", create_node(template[1]))
+# graph_builder.add_node("Poem 3", create_node(template[2]))
 
 graph_builder.add_edge(START, "Poem 1")
-graph_builder.add_edge("Poem 1", "Poem 2")
-graph_builder.add_edge("Poem 2", "Poem 3")
-graph_builder.add_edge("Poem 3", END)
+# graph_builder.add_edge("Poem 1", "Poem 2")
+# graph_builder.add_edge("Poem 2", "Poem 3")
+graph_builder.add_edge("Poem 1", END)
 
 graph = graph_builder.compile(name="Fran's poems")

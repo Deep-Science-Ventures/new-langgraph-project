@@ -17,7 +17,11 @@ from langchain_tavily import TavilySearch
 from langgraph.prebuilt import ToolNode, tools_condition
 
 tool = TavilySearch(max_results=3)
-
+from utils.lm_utils import get_llm
+llm = get_llm()
+    
+tools = [tool]
+llm_with_tools = llm.bind_tools(tools)
 
 class Context(TypedDict):
     """Context parameters for the agent.
@@ -45,27 +49,7 @@ def address_the_user(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
     
     Uses Gemini to generate responses to user messages.
     """
-    # Set up the API key from runtime context
-    api_key = None
-    if runtime.context and runtime.context.get('api_key'):
-        api_key = runtime.context.get('api_key')
-    elif os.environ.get("GOOGLE_API_KEY"):
-        api_key = os.environ.get("GOOGLE_API_KEY")
-    else:
-        return {
-            "messages": [{
-                "role": "assistant",
-                "content": "Error: GOOGLE_API_KEY not provided in context or environment variables."
-            }]
-        }
-    
-    # Initialize Gemini model
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-exp",
-        google_api_key=api_key
-    )
-    tools = [tool]
-    llm_with_tools = llm.bind_tools(tools)
+
 
     # Get response from Gemini
     response = llm_with_tools.invoke(state["messages"])
