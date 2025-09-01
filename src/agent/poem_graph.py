@@ -81,7 +81,7 @@ template = [{
 },
 {
     "title": "Poem 2",
-    "instructions": "ask the user what subject and then write a poem on that subject"
+    "instructions": "Write a poem about cats."
 },
 {
     "title": "Poem 3",
@@ -91,12 +91,12 @@ template = [{
 graph_builder = StateGraph(State, context_schema=Context)
 
 graph_builder.add_node("Poem 1", create_node(template[0]))
-# graph_builder.add_node("Poem 2", create_node(template[1]))
-# graph_builder.add_node("Poem 3", create_node(template[2]))
+graph_builder.add_node("Poem 2", create_node(template[1]))
+graph_builder.add_node("Poem 3", create_node(template[2]))
 
 graph_builder.add_edge(START, "Poem 1")
-# graph_builder.add_edge("Poem 1", "Poem 2")
-# graph_builder.add_edge("Poem 2", "Poem 3")
-graph_builder.add_edge("Poem 1", END)
+graph_builder.add_edge("Poem 1", "Poem 2")
+graph_builder.add_edge("Poem 2", "Poem 3")
+graph_builder.add_edge("Poem 3", END)
 
 graph = graph_builder.compile(name="Fran's poems")

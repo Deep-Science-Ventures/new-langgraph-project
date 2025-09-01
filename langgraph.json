@@ -3,7 +3,7 @@
   "graphs": {
     "chatbot": "./src/agent/graph.py:graph",
     "chatbot with web search": "./src/agent/graph_with_tool.py:graph",
-    "Fran's poems": "./src/agent/poem_graph.py:graph",
+    "Frans poems": "./src/agent/poem_graph.py:graph",
     "Parallel execution": "./src/agent/parallel_execution.py:parallel_workflow",
     "Router": "./src/agent/router_example.py:router_workflow",
     "Orchestrator": "./src/agent/orchestrator_workers.py:orchestrator_worker",
